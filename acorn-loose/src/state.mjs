@@ -1,4 +1,4 @@
-import {Parser, SourceLocation, tokTypes as tt, Node, lineBreak, isNewLine} from "acorn"
+import {Parser, SourceLocation, tokTypes as tt, Node, lineBreak, isNewLine} from "../../acorn/src/index.mjs"
 
 function noop() {}
 
@@ -118,14 +118,14 @@ export class LooseParser {
   }
 
   lineEnd(pos) {
-    while (pos < this.input.length && !isNewLine(this.input.charCodeAt(pos))) ++pos
+    while (pos < this.input.length && !isNewLine(this.input.charCodeAt(pos)))++pos
     return pos
   }
 
   indentationAfter(pos) {
-    for (let count = 0;; ++pos) {
+    for (let count = 0; ; ++pos) {
       let ch = this.input.charCodeAt(pos)
-      if (ch === 32) ++count
+      if (ch === 32)++count
       else if (ch === 9) count += this.options.tabSize
       else return count
     }
@@ -135,7 +135,7 @@ export class LooseParser {
     if (this.tok.type === closeTok || this.tok.type === tt.eof) return true
     return line !== this.curLineStart && this.curIndent < indent && this.tokenStartsLine() &&
       (!blockHeuristic || this.nextLineStart >= this.input.length ||
-       this.indentationAfter(this.nextLineStart) < indent)
+        this.indentationAfter(this.nextLineStart) < indent)
   }
 
   tokenStartsLine() {

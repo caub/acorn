@@ -1,6 +1,6 @@
 import {basename} from "path"
 import {readFileSync as readFile} from "fs"
-import * as acorn from "acorn"
+import * as acorn from "../index.mjs"
 
 let infile, forceFile, silent = false, compact = false, tokenize = false
 const options = {}

@@ -1,10 +1,10 @@
-import {LooseParser} from "./state"
-import {isDummy} from "./parseutil"
-import {getLineInfo, tokTypes as tt} from "acorn"
+import {LooseParser} from "./state.mjs"
+import {isDummy} from "./parseutil.mjs"
+import {getLineInfo, tokTypes as tt} from "../../acorn/src/index.mjs"
 
 const lp = LooseParser.prototype
 
-lp.parseTopLevel = function() {
+lp.parseTopLevel = function () {
   let node = this.startNodeAt(this.options.locations ? [0, getLineInfo(this.input, 0)] : 0)
   node.body = []
   while (this.tok.type !== tt.eof) node.body.push(this.parseStatement())
@@ -16,7 +16,7 @@ lp.parseTopLevel = function() {
   return this.finishNode(node, "Program")
 }
 
-lp.parseStatement = function() {
+lp.parseStatement = function () {
   let starttype = this.tok.type, node = this.startNode(), kind
 
   if (this.toks.isLet()) {
@@ -25,194 +25,194 @@ lp.parseStatement = function() {
   }
 
   switch (starttype) {
-  case tt._break: case tt._continue:
-    this.next()
-    let isBreak = starttype === tt._break
-    if (this.semicolon() || this.canInsertSemicolon()) {
-      node.label = null
-    } else {
-      node.label = this.tok.type === tt.name ? this.parseIdent() : null
+    case tt._break: case tt._continue:
+      this.next()
+      let isBreak = starttype === tt._break
+      if (this.semicolon() || this.canInsertSemicolon()) {
+        node.label = null
+      } else {
+        node.label = this.tok.type === tt.name ? this.parseIdent() : null
+        this.semicolon()
+      }
+      return this.finishNode(node, isBreak ? "BreakStatement" : "ContinueStatement")
+
+    case tt._debugger:
+      this.next()
       this.semicolon()
-    }
-    return this.finishNode(node, isBreak ? "BreakStatement" : "ContinueStatement")
+      return this.finishNode(node, "DebuggerStatement")
 
-  case tt._debugger:
-    this.next()
-    this.semicolon()
-    return this.finishNode(node, "DebuggerStatement")
+    case tt._do:
+      this.next()
+      node.body = this.parseStatement()
+      node.test = this.eat(tt._while) ? this.parseParenExpression() : this.dummyIdent()
+      this.semicolon()
+      return this.finishNode(node, "DoWhileStatement")
 
-  case tt._do:
-    this.next()
-    node.body = this.parseStatement()
-    node.test = this.eat(tt._while) ? this.parseParenExpression() : this.dummyIdent()
-    this.semicolon()
-    return this.finishNode(node, "DoWhileStatement")
+    case tt._for:
+      this.next() // `for` keyword
+      let isAwait = this.options.ecmaVersion >= 9 && this.inAsync && this.eatContextual("await")
 
-  case tt._for:
-    this.next() // `for` keyword
-    let isAwait = this.options.ecmaVersion >= 9 && this.inAsync && this.eatContextual("await")
-
-    this.pushCx()
-    this.expect(tt.parenL)
-    if (this.tok.type === tt.semi) return this.parseFor(node, null)
-    let isLet = this.toks.isLet()
-    if (isLet || this.tok.type === tt._var || this.tok.type === tt._const) {
-      let init = this.parseVar(this.startNode(), true, isLet ? "let" : this.tok.value)
-      if (init.declarations.length === 1 && (this.tok.type === tt._in || this.isContextual("of"))) {
+      this.pushCx()
+      this.expect(tt.parenL)
+      if (this.tok.type === tt.semi) return this.parseFor(node, null)
+      let isLet = this.toks.isLet()
+      if (isLet || this.tok.type === tt._var || this.tok.type === tt._const) {
+        let init = this.parseVar(this.startNode(), true, isLet ? "let" : this.tok.value)
+        if (init.declarations.length === 1 && (this.tok.type === tt._in || this.isContextual("of"))) {
+          if (this.options.ecmaVersion >= 9 && this.tok.type !== tt._in) {
+            node.await = isAwait
+          }
+          return this.parseForIn(node, init)
+        }
+        return this.parseFor(node, init)
+      }
+      let init = this.parseExpression(true)
+      if (this.tok.type === tt._in || this.isContextual("of")) {
         if (this.options.ecmaVersion >= 9 && this.tok.type !== tt._in) {
           node.await = isAwait
         }
-        return this.parseForIn(node, init)
+        return this.parseForIn(node, this.toAssignable(init))
       }
       return this.parseFor(node, init)
-    }
-    let init = this.parseExpression(true)
-    if (this.tok.type === tt._in || this.isContextual("of")) {
-      if (this.options.ecmaVersion >= 9 && this.tok.type !== tt._in) {
-        node.await = isAwait
-      }
-      return this.parseForIn(node, this.toAssignable(init))
-    }
-    return this.parseFor(node, init)
 
-  case tt._function:
-    this.next()
-    return this.parseFunction(node, true)
+    case tt._function:
+      this.next()
+      return this.parseFunction(node, true)
 
-  case tt._if:
-    this.next()
-    node.test = this.parseParenExpression()
-    node.consequent = this.parseStatement()
-    node.alternate = this.eat(tt._else) ? this.parseStatement() : null
-    return this.finishNode(node, "IfStatement")
+    case tt._if:
+      this.next()
+      node.test = this.parseParenExpression()
+      node.consequent = this.parseStatement()
+      node.alternate = this.eat(tt._else) ? this.parseStatement() : null
+      return this.finishNode(node, "IfStatement")
 
-  case tt._return:
-    this.next()
-    if (this.eat(tt.semi) || this.canInsertSemicolon()) node.argument = null
-    else { node.argument = this.parseExpression(); this.semicolon() }
-    return this.finishNode(node, "ReturnStatement")
+    case tt._return:
+      this.next()
+      if (this.eat(tt.semi) || this.canInsertSemicolon()) node.argument = null
+      else {node.argument = this.parseExpression(); this.semicolon()}
+      return this.finishNode(node, "ReturnStatement")
 
-  case tt._switch:
-    let blockIndent = this.curIndent, line = this.curLineStart
-    this.next()
-    node.discriminant = this.parseParenExpression()
-    node.cases = []
-    this.pushCx()
-    this.expect(tt.braceL)
+    case tt._switch:
+      let blockIndent = this.curIndent, line = this.curLineStart
+      this.next()
+      node.discriminant = this.parseParenExpression()
+      node.cases = []
+      this.pushCx()
+      this.expect(tt.braceL)
 
-    let cur
-    while (!this.closes(tt.braceR, blockIndent, line, true)) {
-      if (this.tok.type === tt._case || this.tok.type === tt._default) {
-        let isCase = this.tok.type === tt._case
-        if (cur) this.finishNode(cur, "SwitchCase")
-        node.cases.push(cur = this.startNode())
-        cur.consequent = []
-        this.next()
-        if (isCase) cur.test = this.parseExpression()
-        else cur.test = null
-        this.expect(tt.colon)
-      } else {
-        if (!cur) {
+      let cur
+      while (!this.closes(tt.braceR, blockIndent, line, true)) {
+        if (this.tok.type === tt._case || this.tok.type === tt._default) {
+          let isCase = this.tok.type === tt._case
+          if (cur) this.finishNode(cur, "SwitchCase")
           node.cases.push(cur = this.startNode())
           cur.consequent = []
-          cur.test = null
+          this.next()
+          if (isCase) cur.test = this.parseExpression()
+          else cur.test = null
+          this.expect(tt.colon)
+        } else {
+          if (!cur) {
+            node.cases.push(cur = this.startNode())
+            cur.consequent = []
+            cur.test = null
+          }
+          cur.consequent.push(this.parseStatement())
         }
-        cur.consequent.push(this.parseStatement())
       }
-    }
-    if (cur) this.finishNode(cur, "SwitchCase")
-    this.popCx()
-    this.eat(tt.braceR)
-    return this.finishNode(node, "SwitchStatement")
+      if (cur) this.finishNode(cur, "SwitchCase")
+      this.popCx()
+      this.eat(tt.braceR)
+      return this.finishNode(node, "SwitchStatement")
 
-  case tt._throw:
-    this.next()
-    node.argument = this.parseExpression()
-    this.semicolon()
-    return this.finishNode(node, "ThrowStatement")
-
-  case tt._try:
-    this.next()
-    node.block = this.parseBlock()
-    node.handler = null
-    if (this.tok.type === tt._catch) {
-      let clause = this.startNode()
+    case tt._throw:
       this.next()
-      if (this.eat(tt.parenL)) {
-        clause.param = this.toAssignable(this.parseExprAtom(), true)
-        this.expect(tt.parenR)
-      } else {
-        clause.param = null
-      }
-      clause.body = this.parseBlock()
-      node.handler = this.finishNode(clause, "CatchClause")
-    }
-    node.finalizer = this.eat(tt._finally) ? this.parseBlock() : null
-    if (!node.handler && !node.finalizer) return node.block
-    return this.finishNode(node, "TryStatement")
-
-  case tt._var:
-  case tt._const:
-    return this.parseVar(node, false, kind || this.tok.value)
-
-  case tt._while:
-    this.next()
-    node.test = this.parseParenExpression()
-    node.body = this.parseStatement()
-    return this.finishNode(node, "WhileStatement")
-
-  case tt._with:
-    this.next()
-    node.object = this.parseParenExpression()
-    node.body = this.parseStatement()
-    return this.finishNode(node, "WithStatement")
-
-  case tt.braceL:
-    return this.parseBlock()
-
-  case tt.semi:
-    this.next()
-    return this.finishNode(node, "EmptyStatement")
-
-  case tt._class:
-    return this.parseClass(true)
-
-  case tt._import:
-    if (this.options.ecmaVersion > 10 && this.lookAhead(1).type === tt.parenL) {
-      node.expression = this.parseExpression()
+      node.argument = this.parseExpression()
       this.semicolon()
-      return this.finishNode(node, "ExpressionStatement")
-    }
+      return this.finishNode(node, "ThrowStatement")
 
-    return this.parseImport()
+    case tt._try:
+      this.next()
+      node.block = this.parseBlock()
+      node.handler = null
+      if (this.tok.type === tt._catch) {
+        let clause = this.startNode()
+        this.next()
+        if (this.eat(tt.parenL)) {
+          clause.param = this.toAssignable(this.parseExprAtom(), true)
+          this.expect(tt.parenR)
+        } else {
+          clause.param = null
+        }
+        clause.body = this.parseBlock()
+        node.handler = this.finishNode(clause, "CatchClause")
+      }
+      node.finalizer = this.eat(tt._finally) ? this.parseBlock() : null
+      if (!node.handler && !node.finalizer) return node.block
+      return this.finishNode(node, "TryStatement")
 
-  case tt._export:
-    return this.parseExport()
+    case tt._var:
+    case tt._const:
+      return this.parseVar(node, false, kind || this.tok.value)
 
-  default:
-    if (this.toks.isAsyncFunction()) {
+    case tt._while:
       this.next()
-      this.next()
-      return this.parseFunction(node, true, true)
-    }
-    let expr = this.parseExpression()
-    if (isDummy(expr)) {
-      this.next()
-      if (this.tok.type === tt.eof) return this.finishNode(node, "EmptyStatement")
-      return this.parseStatement()
-    } else if (starttype === tt.name && expr.type === "Identifier" && this.eat(tt.colon)) {
+      node.test = this.parseParenExpression()
       node.body = this.parseStatement()
-      node.label = expr
-      return this.finishNode(node, "LabeledStatement")
-    } else {
-      node.expression = expr
-      this.semicolon()
-      return this.finishNode(node, "ExpressionStatement")
-    }
+      return this.finishNode(node, "WhileStatement")
+
+    case tt._with:
+      this.next()
+      node.object = this.parseParenExpression()
+      node.body = this.parseStatement()
+      return this.finishNode(node, "WithStatement")
+
+    case tt.braceL:
+      return this.parseBlock()
+
+    case tt.semi:
+      this.next()
+      return this.finishNode(node, "EmptyStatement")
+
+    case tt._class:
+      return this.parseClass(true)
+
+    case tt._import:
+      if (this.options.ecmaVersion > 10 && this.lookAhead(1).type === tt.parenL) {
+        node.expression = this.parseExpression()
+        this.semicolon()
+        return this.finishNode(node, "ExpressionStatement")
+      }
+
+      return this.parseImport()
+
+    case tt._export:
+      return this.parseExport()
+
+    default:
+      if (this.toks.isAsyncFunction()) {
+        this.next()
+        this.next()
+        return this.parseFunction(node, true, true)
+      }
+      let expr = this.parseExpression()
+      if (isDummy(expr)) {
+        this.next()
+        if (this.tok.type === tt.eof) return this.finishNode(node, "EmptyStatement")
+        return this.parseStatement()
+      } else if (starttype === tt.name && expr.type === "Identifier" && this.eat(tt.colon)) {
+        node.body = this.parseStatement()
+        node.label = expr
+        return this.finishNode(node, "LabeledStatement")
+      } else {
+        node.expression = expr
+        this.semicolon()
+        return this.finishNode(node, "ExpressionStatement")
+      }
   }
 }
 
-lp.parseBlock = function() {
+lp.parseBlock = function () {
   let node = this.startNode()
   this.pushCx()
   this.expect(tt.braceL)
@@ -225,7 +225,7 @@ lp.parseBlock = function() {
   return this.finishNode(node, "BlockStatement")
 }
 
-lp.parseFor = function(node, init) {
+lp.parseFor = function (node, init) {
   node.init = init
   node.test = node.update = null
   if (this.eat(tt.semi) && this.tok.type !== tt.semi) node.test = this.parseExpression()
@@ -236,7 +236,7 @@ lp.parseFor = function(node, init) {
   return this.finishNode(node, "ForStatement")
 }
 
-lp.parseForIn = function(node, init) {
+lp.parseForIn = function (node, init) {
   let type = this.tok.type === tt._in ? "ForInStatement" : "ForOfStatement"
   this.next()
   node.left = init
@@ -247,7 +247,7 @@ lp.parseForIn = function(node, init) {
   return this.finishNode(node, type)
 }
 
-lp.parseVar = function(node, noIn, kind) {
+lp.parseVar = function (node, noIn, kind) {
   node.kind = kind
   this.next()
   node.declarations = []
@@ -266,7 +266,7 @@ lp.parseVar = function(node, noIn, kind) {
   return this.finishNode(node, "VariableDeclaration")
 }
 
-lp.parseClass = function(isStatement) {
+lp.parseClass = function (isStatement) {
   let node = this.startNode()
   this.next()
   if (this.tok.type === tt.name) node.id = this.parseIdent()
@@ -278,7 +278,7 @@ lp.parseClass = function(isStatement) {
   this.pushCx()
   let indent = this.curIndent + 1, line = this.curLineStart
   this.eat(tt.braceL)
-  if (this.curIndent + 1 < indent) { indent = this.curIndent; line = this.curLineStart }
+  if (this.curIndent + 1 < indent) {indent = this.curIndent; line = this.curLineStart}
   while (!this.closes(tt.braceR, indent, line)) {
     if (this.semicolon()) continue
     let method = this.startNode(), isGenerator, isAsync
@@ -287,9 +287,9 @@ lp.parseClass = function(isStatement) {
       isGenerator = this.eat(tt.star)
     }
     this.parsePropertyName(method)
-    if (isDummy(method.key)) { if (isDummy(this.parseMaybeAssign())) this.next(); this.eat(tt.comma); continue }
+    if (isDummy(method.key)) {if (isDummy(this.parseMaybeAssign())) this.next(); this.eat(tt.comma); continue}
     if (method.key.type === "Identifier" && !method.computed && method.key.name === "static" &&
-        (this.tok.type !== tt.parenL && this.tok.type !== tt.braceL)) {
+      (this.tok.type !== tt.parenL && this.tok.type !== tt.braceL)) {
       method.static = true
       isGenerator = this.eat(tt.star)
       this.parsePropertyName(method)
@@ -297,8 +297,8 @@ lp.parseClass = function(isStatement) {
       method.static = false
     }
     if (!method.computed &&
-        method.key.type === "Identifier" && method.key.name === "async" && this.tok.type !== tt.parenL &&
-        !this.canInsertSemicolon()) {
+      method.key.type === "Identifier" && method.key.name === "async" && this.tok.type !== tt.parenL &&
+      !this.canInsertSemicolon()) {
       isAsync = true
       isGenerator = this.options.ecmaVersion >= 9 && this.eat(tt.star)
       this.parsePropertyName(method)
@@ -306,15 +306,15 @@ lp.parseClass = function(isStatement) {
       isAsync = false
     }
     if (this.options.ecmaVersion >= 5 && method.key.type === "Identifier" &&
-        !method.computed && (method.key.name === "get" || method.key.name === "set") &&
-        this.tok.type !== tt.parenL && this.tok.type !== tt.braceL) {
+      !method.computed && (method.key.name === "get" || method.key.name === "set") &&
+      this.tok.type !== tt.parenL && this.tok.type !== tt.braceL) {
       method.kind = method.key.name
       this.parsePropertyName(method)
       method.value = this.parseMethod(false)
     } else {
       if (!method.computed && !method.static && !isGenerator && !isAsync && (
         method.key.type === "Identifier" && method.key.name === "constructor" ||
-          method.key.type === "Literal" && method.key.value === "constructor")) {
+        method.key.type === "Literal" && method.key.value === "constructor")) {
         method.kind = "constructor"
       } else {
         method.kind = "method"
@@ -335,7 +335,7 @@ lp.parseClass = function(isStatement) {
   return this.finishNode(node, isStatement ? "ClassDeclaration" : "ClassExpression")
 }
 
-lp.parseFunction = function(node, isStatement, isAsync) {
+lp.parseFunction = function (node, isStatement, isAsync) {
   let oldInAsync = this.inAsync, oldInFunction = this.inFunction
   this.initFunction(node)
   if (this.options.ecmaVersion >= 6) {
@@ -356,7 +356,7 @@ lp.parseFunction = function(node, isStatement, isAsync) {
   return this.finishNode(node, isStatement ? "FunctionDeclaration" : "FunctionExpression")
 }
 
-lp.parseExport = function() {
+lp.parseExport = function () {
   let node = this.startNode()
   this.next()
   if (this.eat(tt.star)) {
@@ -392,7 +392,7 @@ lp.parseExport = function() {
   return this.finishNode(node, "ExportNamedDeclaration")
 }
 
-lp.parseImport = function() {
+lp.parseImport = function () {
   let node = this.startNode()
   this.next()
   if (this.tok.type === tt.string) {
@@ -414,7 +414,7 @@ lp.parseImport = function() {
   return this.finishNode(node, "ImportDeclaration")
 }
 
-lp.parseImportSpecifiers = function() {
+lp.parseImportSpecifiers = function () {
   let elts = []
   if (this.tok.type === tt.star) {
     let elt = this.startNode()
@@ -447,7 +447,7 @@ lp.parseImportSpecifiers = function() {
   return elts
 }
 
-lp.parseExportSpecifierList = function() {
+lp.parseExportSpecifierList = function () {
   let elts = []
   let indent = this.curIndent, line = this.curLineStart, continuedLine = this.nextLineStart
   this.pushCx()

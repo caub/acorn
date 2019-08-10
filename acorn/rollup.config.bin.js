@@ -1,7 +1,7 @@
 import buble from "rollup-plugin-buble"
 
 export default {
-  input: "acorn/src/bin/acorn.js",
+  input: "acorn/src/bin/acorn.mjs",
   output: {
     file: "acorn/dist/bin.js",
     format: "cjs",

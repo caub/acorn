@@ -1,5 +1,5 @@
-import {tokTypes as tt, Token, isNewLine, SourceLocation, getLineInfo, lineBreakG} from "acorn"
-import {LooseParser} from "./state"
+import {tokTypes as tt, Token, isNewLine, SourceLocation, getLineInfo, lineBreakG} from "../../acorn/src/index.mjs"
+import {LooseParser} from "./state.mjs"
 
 const lp = LooseParser.prototype
 
@@ -7,7 +7,7 @@ function isSpace(ch) {
   return (ch < 14 && ch > 8) || ch === 32 || ch === 160 || isNewLine(ch)
 }
 
-lp.next = function() {
+lp.next = function () {
   this.last = this.tok
   if (this.ahead.length)
     this.tok = this.ahead.shift()
@@ -23,13 +23,13 @@ lp.next = function() {
   }
 }
 
-lp.readToken = function() {
-  for (;;) {
+lp.readToken = function () {
+  for (; ;) {
     try {
       this.toks.next()
       if (this.toks.type === tt.dot &&
-          this.input.substr(this.toks.end, 1) === "." &&
-          this.options.ecmaVersion >= 6) {
+        this.input.substr(this.toks.end, 1) === "." &&
+        this.options.ecmaVersion >= 6) {
         this.toks.end++
         this.toks.type = tt.ellipsis
       }
@@ -45,7 +45,7 @@ lp.readToken = function() {
           replace = {start: e.pos, end: pos, type: tt.string, value: this.input.slice(e.pos + 1, pos)}
         } else if (/regular expr/i.test(msg)) {
           let re = this.input.slice(e.pos, pos)
-          try { re = new RegExp(re) } catch (e) { /* ignore compilation error due to new syntax */ }
+          try {re = new RegExp(re)} catch (e) { /* ignore compilation error due to new syntax */}
           replace = {start: e.pos, end: pos, type: tt.regexp, value: re}
         } else if (/template/.test(msg)) {
           replace = {
@@ -58,7 +58,7 @@ lp.readToken = function() {
           replace = false
         }
       } else if (/invalid (unicode|regexp|number)|expecting unicode|octal literal|is reserved|directly after number|expected number in radix/i.test(msg)) {
-        while (pos < this.input.length && !isSpace(this.input.charCodeAt(pos))) ++pos
+        while (pos < this.input.length && !isSpace(this.input.charCodeAt(pos)))++pos
       } else if (/character escape|expected hexadecimal/i.test(msg)) {
         while (pos < this.input.length) {
           let ch = this.input.charCodeAt(pos++)
@@ -86,7 +86,7 @@ lp.readToken = function() {
   }
 }
 
-lp.resetTo = function(pos) {
+lp.resetTo = function (pos) {
   this.toks.pos = pos
   let ch = this.input.charAt(pos - 1)
   this.toks.exprAllowed = !ch || /[[{(,;:?/*=+\-~!|&%^<>]/.test(ch) ||
@@ -104,7 +104,7 @@ lp.resetTo = function(pos) {
   }
 }
 
-lp.lookAhead = function(n) {
+lp.lookAhead = function (n) {
   while (n > this.ahead.length)
     this.ahead.push(this.readToken())
   return this.ahead[n - 1]

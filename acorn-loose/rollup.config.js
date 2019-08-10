@@ -1,7 +1,7 @@
 import buble from "rollup-plugin-buble"
 
 export default {
-  input: "./acorn-loose/src/index.js",
+  input: "./acorn-loose/src/index.mjs",
   output: [
     {
       file: "acorn-loose/dist/acorn-loose.js",

@@ -18,11 +18,11 @@
 
 export function simple(node, visitors, baseVisitor, state, override) {
   if (!baseVisitor) baseVisitor = base
-  ;(function c(node, st, override) {
-    let type = override || node.type, found = visitors[type]
-    baseVisitor[type](node, st, c)
-    if (found) found(node, st)
-  })(node, state, override)
+    ; (function c(node, st, override) {
+      let type = override || node.type, found = visitors[type]
+      baseVisitor[type](node, st, c)
+      if (found) found(node, st)
+    })(node, state, override)
 }
 
 // An ancestor walk keeps an array of ancestor nodes (including the
@@ -31,14 +31,14 @@ export function simple(node, visitors, baseVisitor, state, override) {
 export function ancestor(node, visitors, baseVisitor, state) {
   let ancestors = []
   if (!baseVisitor) baseVisitor = base
-  ;(function c(node, st, override) {
-    let type = override || node.type, found = visitors[type]
-    let isNew = node !== ancestors[ancestors.length - 1]
-    if (isNew) ancestors.push(node)
-    baseVisitor[type](node, st, c)
-    if (found) found(node, st || ancestors, ancestors)
-    if (isNew) ancestors.pop()
-  })(node, state)
+    ; (function c(node, st, override) {
+      let type = override || node.type, found = visitors[type]
+      let isNew = node !== ancestors[ancestors.length - 1]
+      if (isNew) ancestors.push(node)
+      baseVisitor[type](node, st, c)
+      if (found) found(node, st || ancestors, ancestors)
+      if (isNew) ancestors.pop()
+    })(node, state)
 }
 
 // A recursive walk is one where your functions override the default
@@ -48,9 +48,10 @@ export function ancestor(node, visitors, baseVisitor, state) {
 // nodes).
 export function recursive(node, state, funcs, baseVisitor, override) {
   let visitor = funcs ? make(funcs, baseVisitor || undefined) : baseVisitor
-  ;(function c(node, st, override) {
-    visitor[override || node.type](node, st, c)
-  })(node, state, override)
+    ; (function c(node, st, override) {
+      if (!visitor[override || node.type]) console.error('no', override, node)
+      visitor[override || node.type](node, st, c)
+    })(node, state, override)
 }
 
 function makeTest(test) {
@@ -63,17 +64,17 @@ function makeTest(test) {
 }
 
 class Found {
-  constructor(node, state) { this.node = node; this.state = state }
+  constructor(node, state) {this.node = node; this.state = state}
 }
 
 // A full walk triggers the callback on each node
 export function full(node, callback, baseVisitor, state, override) {
   if (!baseVisitor) baseVisitor = base
-  ;(function c(node, st, override) {
-    let type = override || node.type
-    baseVisitor[type](node, st, c)
-    if (!override) callback(node, st, type)
-  })(node, state, override)
+    ; (function c(node, st, override) {
+      let type = override || node.type
+      baseVisitor[type](node, st, c)
+      if (!override) callback(node, st, type)
+    })(node, state, override)
 }
 
 // An fullAncestor walk is like an ancestor walk, but triggers
@@ -81,14 +82,14 @@ export function full(node, callback, baseVisitor, state, override) {
 export function fullAncestor(node, callback, baseVisitor, state) {
   if (!baseVisitor) baseVisitor = base
   let ancestors = []
-  ;(function c(node, st, override) {
-    let type = override || node.type
-    let isNew = node !== ancestors[ancestors.length - 1]
-    if (isNew) ancestors.push(node)
-    baseVisitor[type](node, st, c)
-    if (!override) callback(node, st || ancestors, ancestors, type)
-    if (isNew) ancestors.pop()
-  })(node, state)
+    ; (function c(node, st, override) {
+      let type = override || node.type
+      let isNew = node !== ancestors[ancestors.length - 1]
+      if (isNew) ancestors.push(node)
+      baseVisitor[type](node, st, c)
+      if (!override) callback(node, st || ancestors, ancestors, type)
+      if (isNew) ancestors.pop()
+    })(node, state)
 }
 
 // Find a node with a given start, end, and type (all are optional,
@@ -101,11 +102,11 @@ export function findNodeAt(node, start, end, test, baseVisitor, state) {
     (function c(node, st, override) {
       let type = override || node.type
       if ((start == null || node.start <= start) &&
-          (end == null || node.end >= end))
+        (end == null || node.end >= end))
         baseVisitor[type](node, st, c)
       if ((start == null || node.start === start) &&
-          (end == null || node.end === end) &&
-          test(type, node))
+        (end == null || node.end === end) &&
+        test(type, node))
         throw new Found(node, st)
     })(node, state)
   } catch (e) {
@@ -154,18 +155,18 @@ export function findNodeBefore(node, pos, test, baseVisitor, state) {
   test = makeTest(test)
   if (!baseVisitor) baseVisitor = base
   let max
-  ;(function c(node, st, override) {
-    if (node.start > pos) return
-    let type = override || node.type
-    if (node.end <= pos && (!max || max.node.end < node.end) && test(type, node))
-      max = new Found(node, st)
-    baseVisitor[type](node, st, c)
-  })(node, state)
+    ; (function c(node, st, override) {
+      if (node.start > pos) return
+      let type = override || node.type
+      if (node.end <= pos && (!max || max.node.end < node.end) && test(type, node))
+        max = new Found(node, st)
+      baseVisitor[type](node, st, c)
+    })(node, state)
   return max
 }
 
 // Fallback to an Object.create polyfill for older environments.
-const create = Object.create || function(proto) {
+const create = Object.create || function (proto) {
   function Ctor() {}
   Ctor.prototype = proto
   return new Ctor
@@ -179,7 +180,7 @@ export function make(funcs, baseVisitor) {
   return visitor
 }
 
-function skipThrough(node, st, c) { c(node, st) }
+function skipThrough(node, st, c) {c(node, st)}
 function ignore(_node, _st, _c) {}
 
 // Node walkers.
